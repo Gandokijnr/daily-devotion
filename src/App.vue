@@ -19,12 +19,12 @@ import { RouterLink, RouterView } from 'vue-router'
           >
             Today's reading
           </RouterLink>
-          <RouterLink
+          <!-- <RouterLink
             to="/admin/login"
             class="hover:text-primary-700 transition"
           >
             Admin
-          </RouterLink>
+          </RouterLink> -->
         </nav>
       </div>
     </header>
