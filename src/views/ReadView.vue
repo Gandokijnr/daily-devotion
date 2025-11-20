@@ -13,8 +13,11 @@ interface Devotion {
 
 const devotions = ref<Devotion[]>([])
 const loading = ref(true)
+const loadingMore = ref(false)
 const error = ref<string | null>(null)
 const selectedDevotion = ref<Devotion | null>(null)
+const pageSize = 10
+const hasMore = ref(true)
 
 function formatDate(value: string) {
   const date = new Date(value)
@@ -22,22 +25,77 @@ function formatDate(value: string) {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-async function loadDevotions() {
-  loading.value = true
-  error.value = null
+function getPlainText(html: string) {
+  if (!html) return ''
+
+  if (typeof document === 'undefined') {
+    return html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const text = div.textContent || div.innerText || ''
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function getPreview(devotion: Devotion, length = 100) {
+  const text = getPlainText(devotion.content)
+  if (text.length <= length) return text
+  return text.slice(0, length) + '…'
+}
+
+async function loadDevotions(initial = false) {
+  if (initial) {
+    loading.value = true
+    loadingMore.value = false
+    hasMore.value = true
+    error.value = null
+    devotions.value = []
+  } else {
+    loadingMore.value = true
+    error.value = null
+  }
+
+  const from = initial ? 0 : devotions.value.length
+  const to = from + pageSize - 1
+
   const { data, error: queryError } = await supabase
     .from('devotions')
     .select('*')
-    .order('date', { ascending: false })
+    .order('createdAt', { ascending: false })
+    .range(from, to)
 
   if (queryError) {
     error.value = 'Unable to load devotions right now.'
     loading.value = false
+    loadingMore.value = false
     return
   }
 
-  devotions.value = (data ?? []) as Devotion[]
-  loading.value = false
+  const items = (data ?? []) as Devotion[]
+  if (initial) {
+    devotions.value = items
+    loading.value = false
+  } else {
+    devotions.value = [...devotions.value, ...items]
+    loadingMore.value = false
+  }
+
+  if (!items.length || items.length < pageSize) {
+    hasMore.value = false
+  }
+}
+
+async function loadMore() {
+  if (loadingMore.value || !hasMore.value) return
+  await loadDevotions(false)
 }
 
 function openDevotion(devotion: Devotion) {
@@ -49,7 +107,7 @@ function closeDevotion() {
 }
 
 async function shareDevotion(devotion: Devotion) {
-  const text = `${devotion.title} (GraceDaily)\n${formatDate(devotion.date)}\n\nMemory verse: ${devotion.verse}\n\n${devotion.content}`
+  const text = `${devotion.title} (GraceDaily)\n${formatDate(devotion.date)}\n\nMemory verse: ${devotion.verse}\n\n${getPlainText(devotion.content)}`
 
   try {
     if (navigator.share) {
@@ -67,7 +125,7 @@ async function shareDevotion(devotion: Devotion) {
   }
 }
 
-onMounted(loadDevotions)
+onMounted(() => loadDevotions(true))
 </script>
 
 <template>
@@ -99,44 +157,58 @@ onMounted(loadDevotions)
         No devotions have been published yet. Please check back later.
       </div>
 
-      <div
-        v-else
-        class="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-4"
-      >
-        <article
-          v-for="devotion in devotions"
-          :key="devotion.id"
-          class="gd-card p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow"
-          @click="openDevotion(devotion)"
+      <div v-else>
+        <div class="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-4">
+          <article
+            v-for="devotion in devotions"
+            :key="devotion.id"
+            class="gd-card p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow"
+            @click="openDevotion(devotion)"
+          >
+            <div>
+              <p class="text-xs text-slate-500 mb-1">{{ formatDate(devotion.date) }}</p>
+              <h3 class="text-base font-semibold text-slate-900 mb-2 line-clamp-2">
+                {{ devotion.title }}
+              </h3>
+              <p class="text-xs text-slate-600 mb-3 italic line-clamp-2">
+                {{ devotion.verse }}
+              </p>
+              <p class="text-sm text-slate-600 line-clamp-3">
+                {{ getPreview(devotion) }}
+              </p>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+              <button
+                type="button"
+                class="text-xs font-medium text-primary-700 hover:text-primary-800"
+              >
+                Read more
+              </button>
+              <button
+                type="button"
+                class="text-[11px] text-slate-500 hover:text-slate-700"
+                @click.stop="shareDevotion(devotion)"
+              >
+                Share
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div
+          v-if="hasMore"
+          class="mt-6 flex justify-center"
         >
-          <div>
-            <p class="text-xs text-slate-500 mb-1">{{ formatDate(devotion.date) }}</p>
-            <h3 class="text-base font-semibold text-slate-900 mb-2 line-clamp-2">
-              {{ devotion.title }}
-            </h3>
-            <p class="text-xs text-slate-600 mb-3 italic line-clamp-2">
-              {{ devotion.verse }}
-            </p>
-            <p class="text-sm text-slate-600 line-clamp-3">
-              {{ devotion.content.slice(0, 100) }}<span v-if="devotion.content.length > 100">26hellip;</span>
-            </p>
-          </div>
-          <div class="mt-4 flex justify-between items-center">
-            <button
-              type="button"
-              class="text-xs font-medium text-primary-700 hover:text-primary-800"
-            >
-              Read more
-            </button>
-            <button
-              type="button"
-              class="text-[11px] text-slate-500 hover:text-slate-700"
-              @click.stop="shareDevotion(devotion)"
-            >
-              Share
-            </button>
-          </div>
-        </article>
+          <button
+            type="button"
+            class="px-4 py-1.5 rounded-full border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="loadingMore"
+            @click="loadMore"
+          >
+            <span v-if="loadingMore">Loading more…</span>
+            <span v-else>Load more devotions</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -171,9 +243,10 @@ onMounted(loadDevotions)
             </p>
           </div>
 
-          <div class="prose prose-sm max-w-none text-slate-700 whitespace-pre-line">
-            {{ selectedDevotion.content }}
-          </div>
+          <div
+            class="prose prose-sm max-w-none text-slate-700"
+            v-html="selectedDevotion.content"
+          ></div>
         </div>
 
         <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">

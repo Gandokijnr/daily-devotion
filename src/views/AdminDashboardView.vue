@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -25,12 +25,40 @@ const content = ref('')
 const submitting = ref(false)
 const editingId = ref<number | null>(null)
 
+const editorEl = ref<HTMLElement | null>(null)
+
 const adminEmail = ref<string | null>(null)
 
 function formatDate(value: string) {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+watch(content, (value) => {
+  if (editorEl.value && editorEl.value.innerHTML !== (value ?? '')) {
+    editorEl.value.innerHTML = value ?? ''
+  }
+})
+
+function focusEditor() {
+  if (!editorEl.value) return
+  editorEl.value.focus()
+}
+
+function applyFormat(command: string, value?: string) {
+  if (typeof document === 'undefined') return
+  focusEditor()
+  document.execCommand(command, false, value)
+  if (editorEl.value) {
+    content.value = editorEl.value.innerHTML
+  }
+}
+
+function onEditorInput() {
+  if (editorEl.value) {
+    content.value = editorEl.value.innerHTML
+  }
 }
 
 async function loadSession() {
@@ -45,7 +73,7 @@ async function loadDevotions() {
   const { data, error: queryError } = await supabase
     .from('devotions')
     .select('*')
-    .order('date', { ascending: false })
+    .order('createdAt', { ascending: false })
 
   if (queryError) {
     error.value = 'Unable to load devotions.'
@@ -177,6 +205,10 @@ async function signOut() {
 onMounted(async () => {
   await loadSession()
   await loadDevotions()
+
+  if (editorEl.value) {
+    editorEl.value.innerHTML = content.value ?? ''
+  }
 })
 </script>
 
@@ -239,12 +271,81 @@ onMounted(async () => {
 
           <div class="space-y-1">
             <label class="block text-xs font-medium text-slate-700">Main content</label>
-            <textarea
-              v-model="content"
-              rows="6"
-              required
-              class="block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-y"
-            />
+
+            <div class="rounded-lg border border-slate-200 bg-white">
+              <div class="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100 font-semibold"
+                  @click="applyFormat('bold')"
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100 italic"
+                  @click="applyFormat('italic')"
+                >
+                  I
+                </button>
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100 underline"
+                  @click="applyFormat('underline')"
+                >
+                  U
+                </button>
+
+                <span class="mx-1 h-4 w-px bg-slate-200" />
+
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  @click="applyFormat('justifyLeft')"
+                >
+                  Left
+                </button>
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  @click="applyFormat('justifyCenter')"
+                >
+                  Center
+                </button>
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  @click="applyFormat('justifyRight')"
+                >
+                  Right
+                </button>
+
+                <span class="mx-1 h-4 w-px bg-slate-200" />
+
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  @click="applyFormat('insertUnorderedList')"
+                >
+                  • List
+                </button>
+                <button
+                  type="button"
+                  class="px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  @click="applyFormat('insertOrderedList')"
+                >
+                  1. List
+                </button>
+              </div>
+
+              <div
+                ref="editorEl"
+                class="admin-editor-content min-h-[180px] max-h-[420px] overflow-y-auto px-3 py-2 text-sm text-slate-900 focus:outline-none"
+                contenteditable="true"
+                @input="onEditorInput"
+              ></div>
+            </div>
+
             <p class="text-[11px] text-slate-400">You can paste from your prepared sermon notes or write directly here.</p>
           </div>
 
@@ -321,3 +422,15 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.admin-editor-content ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+}
+
+.admin-editor-content ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+}
+</style>
