@@ -115,7 +115,7 @@ onMounted(loadDevotions)
               {{ devotion.title }}
             </h3>
             <p class="text-xs text-slate-600 mb-3 italic line-clamp-2">
-              22{{ devotion.verse }}22
+              {{ devotion.verse }}
             </p>
             <p class="text-sm text-slate-600 line-clamp-3">
               {{ devotion.content.slice(0, 100) }}<span v-if="devotion.content.length > 100">26hellip;</span>
