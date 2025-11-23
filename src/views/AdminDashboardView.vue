@@ -424,12 +424,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.admin-editor-content ul {
+.admin-editor-content :deep(ul) {
   list-style-type: disc;
   padding-left: 1.25rem;
 }
 
-.admin-editor-content ol {
+.admin-editor-content :deep(ol) {
   list-style-type: decimal;
   padding-left: 1.25rem;
 }
