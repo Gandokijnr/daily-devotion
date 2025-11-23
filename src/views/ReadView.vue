@@ -268,4 +268,16 @@ onMounted(() => loadDevotions(true))
       </div>
     </div>
   </div>
-</template>
+ </template>
+
+<style scoped>
+.prose :deep(ul) {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+}
+
+.prose :deep(ol) {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+}
+</style>
