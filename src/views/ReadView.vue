@@ -21,6 +21,9 @@ const pageSize = 9
 const hasMore = ref(true)
 const loadMoreTrigger = ref(null)
 const bookmarked = ref<Set<number>>(new Set())
+const isMobile = ref(false)
+const tooltipVisible = ref(false)
+const tooltipText = ref('')
 
 // Today's devotion (most recent)
 const todaysDevotion = computed(() => devotions.value[0] || null)
@@ -155,12 +158,44 @@ function toggleBookmark(id: number) {
   }
 }
 
+function openTooltip(text: string) {
+  tooltipText.value = text
+  tooltipVisible.value = true
+}
+
+function closeTooltip() {
+  tooltipVisible.value = false
+  tooltipText.value = ''
+}
+
+function handleContentClick(event: MouseEvent) {
+  if (!isMobile.value) return
+  const target = event.target as HTMLElement | null
+  if (!target) return
+  const abbr = target.closest('abbr.cursor-help') as HTMLElement | null
+  if (!abbr) return
+  const text = abbr.getAttribute('title') || ''
+  if (!text) return
+  event.preventDefault()
+  event.stopPropagation()
+  openTooltip(text)
+}
+
 const enhancedBodyContent = computed(() => {
   if (!selectedDevotion.value) return ''
   return enhanceBodyWithVerseTooltips(selectedDevotion.value.content)
 })
 
-onMounted(() => loadDevotions(true))
+onMounted(() => {
+  loadDevotions(true)
+  if (typeof window !== 'undefined') {
+    if (window.matchMedia) {
+      isMobile.value = window.matchMedia('(pointer: coarse)').matches
+    } else {
+      isMobile.value = window.innerWidth < 768
+    }
+  }
+})
 </script>
 
 <template>
@@ -182,7 +217,11 @@ onMounted(() => loadDevotions(true))
           </h1>
 
           <p class="text-lg italic text-sky-700 mb-6 font-medium">
-            <abbr :title="getVerseTooltipText(todaysDevotion.verse)" class="cursor-help">
+            <abbr
+              :title="!isMobile ? getVerseTooltipText(todaysDevotion.verse) : undefined"
+              class="cursor-help"
+              @click.stop.prevent="isMobile && openTooltip(getVerseTooltipText(todaysDevotion.verse))"
+            >
               {{ getVerseRefDisplay(todaysDevotion.verse) }}
             </abbr>
           </p>
@@ -257,7 +296,11 @@ onMounted(() => loadDevotions(true))
               {{ devotion.title }}
             </h3>
             <p class="text-xs italic text-slate-600 mb-3 line-clamp-1">
-              <abbr :title="getVerseTooltipText(devotion.verse)" class="cursor-help">
+              <abbr
+                :title="!isMobile ? getVerseTooltipText(devotion.verse) : undefined"
+                class="cursor-help"
+                @click.stop.prevent="isMobile && openTooltip(getVerseTooltipText(devotion.verse))"
+              >
                 {{ getVerseRefDisplay(devotion.verse) }}
               </abbr>
             </p>
@@ -313,14 +356,18 @@ onMounted(() => loadDevotions(true))
           <div class="mx-6 mt-6 p-5 bg-gradient-to-r from-sky-50 to-blue-50 rounded-2xl border border-sky-200">
             <p class="text-xs font-bold uppercase tracking-widest text-sky-700 mb-2">Memory Verse</p>
             <p class="text-lg italic font-medium text-sky-900 leading-relaxed">
-              <abbr :title="getVerseTooltipText(selectedDevotion.verse)" class="cursor-help">
+              <abbr
+                :title="!isMobile ? getVerseTooltipText(selectedDevotion.verse) : undefined"
+                class="cursor-help"
+                @click.stop.prevent="isMobile && openTooltip(getVerseTooltipText(selectedDevotion.verse))"
+              >
                 {{ getVerseRefDisplay(selectedDevotion.verse) }}
               </abbr>
             </p>
           </div>
 
           <!-- Content -->
-          <div class="px-6 py-8 prose prose-sm max-w-none text-slate-700 leading-relaxed">
+          <div class="px-6 py-8 prose prose-sm max-w-none text-slate-700 leading-relaxed" @click="handleContentClick">
             <div v-html="enhancedBodyContent"></div>
           </div>
 
@@ -343,6 +390,27 @@ onMounted(() => loadDevotions(true))
               class="gd-btn-primary px-5 py-2.5 text-sm font-medium"
             >
               Share This Devotion
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div
+        v-if="isMobile && tooltipVisible"
+        class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40"
+        @click.self="closeTooltip"
+      >
+        <div class="mx-4 mb-8 max-w-md w-full bg-white rounded-2xl shadow-xl border border-sky-100 p-4">
+          <div class="flex justify-between items-start gap-3">
+            <p class="text-sm text-slate-700 leading-relaxed">
+              {{ tooltipText }}
+            </p>
+            <button @click="closeTooltip" class="text-slate-400 hover:text-slate-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>
