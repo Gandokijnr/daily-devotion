@@ -56,10 +56,37 @@ function getVerseRefDisplay(verse: string) {
 
 function getVerseTooltipText(verse: string) {
   const parts = verse.split('|')
-  if (parts.length > 1) {
-    return parts.slice(1).join('|').trim()
-  }
-  return verse.trim()
+  const raw = parts.length > 1 ? parts.slice(1).join('|') : verse
+  return cleanTooltipText(raw)
+}
+
+function cleanTooltipText(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, ' ') // strip HTML tags
+    .replace(/&nbsp;/gi, ' ') // normalize non-breaking spaces
+    .replace(/\s+/g, ' ') // collapse whitespace
+    .trim()
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function enhanceBodyWithVerseTooltips(html: string): string {
+  if (!html) return html
+
+  // Replace markers like [[John 3:16 | For God so loved the world...]]
+  return html.replace(/\[\[([^|\[\]]+)\|([^\[\]]+)\]\]/g, (_match, refRaw, textRaw) => {
+    const cleanedRef = cleanTooltipText(String(refRaw))
+    const ref = escapeHtmlAttribute(cleanedRef)
+    const cleanedText = cleanTooltipText(String(textRaw))
+    const text = escapeHtmlAttribute(cleanedText)
+    return `<abbr title="${text}" class="cursor-help">${ref}</abbr>`
+  })
 }
 
 // Data loading
@@ -127,6 +154,11 @@ function toggleBookmark(id: number) {
     bookmarked.value.add(id)
   }
 }
+
+const enhancedBodyContent = computed(() => {
+  if (!selectedDevotion.value) return ''
+  return enhanceBodyWithVerseTooltips(selectedDevotion.value.content)
+})
 
 onMounted(() => loadDevotions(true))
 </script>
@@ -289,7 +321,7 @@ onMounted(() => loadDevotions(true))
 
           <!-- Content -->
           <div class="px-6 py-8 prose prose-sm max-w-none text-slate-700 leading-relaxed">
-            <div v-html="selectedDevotion.content"></div>
+            <div v-html="enhancedBodyContent"></div>
           </div>
 
           <!-- Footer Actions -->
