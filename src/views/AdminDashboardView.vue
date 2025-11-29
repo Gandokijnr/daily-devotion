@@ -264,6 +264,7 @@ onMounted(async () => {
                 v-model="verse"
                 type="text"
                 required
+                placeholder="John 3:16 | For God so loved the world..."
                 class="block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
             </div>

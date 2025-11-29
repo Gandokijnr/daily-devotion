@@ -49,6 +49,19 @@ function getPreview(devotion: Devotion, length = 120) {
   return text.length <= length ? text : text.slice(0, length) + '…'
 }
 
+function getVerseRefDisplay(verse: string) {
+  const [ref] = verse.split('|')
+  return (ref || '').trim()
+}
+
+function getVerseTooltipText(verse: string) {
+  const parts = verse.split('|')
+  if (parts.length > 1) {
+    return parts.slice(1).join('|').trim()
+  }
+  return verse.trim()
+}
+
 // Data loading
 async function loadDevotions(initial = false) {
   if (initial) {
@@ -137,7 +150,9 @@ onMounted(() => loadDevotions(true))
           </h1>
 
           <p class="text-lg italic text-sky-700 mb-6 font-medium">
-            {{ todaysDevotion.verse }}
+            <abbr :title="getVerseTooltipText(todaysDevotion.verse)" class="cursor-help">
+              {{ getVerseRefDisplay(todaysDevotion.verse) }}
+            </abbr>
           </p>
 
           <p class="text-base text-slate-700 max-w-4xl leading-relaxed mb-8">
@@ -210,7 +225,9 @@ onMounted(() => loadDevotions(true))
               {{ devotion.title }}
             </h3>
             <p class="text-xs italic text-slate-600 mb-3 line-clamp-1">
-              {{ devotion.verse }}
+              <abbr :title="getVerseTooltipText(devotion.verse)" class="cursor-help">
+                {{ getVerseRefDisplay(devotion.verse) }}
+              </abbr>
             </p>
             <p class="text-sm text-slate-600 line-clamp-3">
               {{ getPreview(devotion, 100) }}
@@ -264,7 +281,9 @@ onMounted(() => loadDevotions(true))
           <div class="mx-6 mt-6 p-5 bg-gradient-to-r from-sky-50 to-blue-50 rounded-2xl border border-sky-200">
             <p class="text-xs font-bold uppercase tracking-widest text-sky-700 mb-2">Memory Verse</p>
             <p class="text-lg italic font-medium text-sky-900 leading-relaxed">
-              {{ selectedDevotion.verse }}
+              <abbr :title="getVerseTooltipText(selectedDevotion.verse)" class="cursor-help">
+                {{ getVerseRefDisplay(selectedDevotion.verse) }}
+              </abbr>
             </p>
           </div>
 
